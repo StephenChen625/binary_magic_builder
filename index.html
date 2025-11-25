@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二进制魔术 - 数字填表演示</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const BinaryMagicBuilder = () => {
+          const [mode, setMode] = useState("demo");
+          const [currentNumber, setCurrentNumber] = useState(1);
+          const [filledNumbers, setFilledNumbers] = useState({
+            1: [], 2: [], 3: [], 4: [], 5: [], 6: [],
+          });
+          const [isAnimating, setIsAnimating] = useState(false);
+          const [highlightCards, setHighlightCards] = useState([]);
+          const [autoPlay, setAutoPlay] = useState(false);
+          const [inputValue, setInputValue] = useState("");
+
+          const [challengeNumber, setChallengeNumber] = useState(null);
+          const [challengeStep, setChallengeStep] = useState(0);
+          const [selectedDecimal, setSelectedDecimal] = useState([]);
+          const [selectedBinary, setSelectedBinary] = useState([false, false, false, false, false, false]);
+          const [selectedCards, setSelectedCards] = useState([]);
+          const [feedback, setFeedback] = useState(null);
+
+          const cards = [
+            { id: 1, label: "A", value: 1, color: "from-red-500 to-pink-500" },
+            { id: 2, label: "B", value: 2, color: "from-orange-500 to-yellow-500" },
+            { id: 3, label: "C", value: 4, color: "from-green-500 to-emerald-500" },
+            { id: 4, label: "D", value: 8, color: "from-blue-500 to-cyan-500" },
+            { id: 5, label: "E", value: 16, color: "from-indigo-500 to-purple-500" },
+            { id: 6, label: "F", value: 32, color: "from-purple-500 to-pink-500" },
+          ];
+
+          const getBinary = (num) => {
+            const binary = [];
+            for (let i = 0; i < 6; i++) {
+              binary.push((num >> i) & 1);
+            }
+            return binary;
+          };
+
+          const getTargetCards = (num) => {
+            return cards.filter(card => (num & card.value) !== 0).map(c => c.id);
+          };
+
+          const getDecimalBreakdown = (num) => {
+            return cards.map(card => ({
+              value: card.value,
+              active: (num & card.value) !== 0,
+              label: card.label,
+            })).reverse();
+          };
+
+          const fillCurrentNumber = () => {
+            if (currentNumber > 63) return;
+            setIsAnimating(true);
+            const targets = getTargetCards(currentNumber);
+            setHighlightCards(targets);
+
+            setTimeout(() => {
+              const newFilled = { ...filledNumbers };
+              targets.forEach((cardId) => {
+                if (!newFilled[cardId].includes(currentNumber)) {
+                  newFilled[cardId] = [...newFilled[cardId], currentNumber].sort((a, b) => a - b);
+                }
+              });
+              setFilledNumbers(newFilled);
+              setIsAnimating(false);
+              setHighlightCards([]);
+            }, 1500);
+          };
+
+          const nextNumber = () => {
+            if (currentNumber < 63 && !isAnimating) {
+              fillCurrentNumber();
+              setTimeout(() => setCurrentNumber(currentNumber + 1), 1600);
+            }
+          };
+
+          const prevNumber = () => {
+            if (currentNumber > 1 && !isAnimating) {
+              goToNumber(currentNumber - 1);
+            }
+          };
+
+          const goToNumber = (num) => {
+            if (num < 1 || num > 63) return;
+            const newFilled = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+            for (let i = 1; i < num; i++) {
+              const targets = getTargetCards(i);
+              targets.forEach((cardId) => {
+                if (!newFilled[cardId].includes(i)) {
+                  newFilled[cardId].push(i);
+                }
+              });
+            }
+            Object.keys(newFilled).forEach((key) => {
+              newFilled[key].sort((a, b) => a - b);
+            });
+            setFilledNumbers(newFilled);
+            setCurrentNumber(num);
+            setAutoPlay(false);
+          };
+
+          const reset = () => {
+            setCurrentNumber(1);
+            setFilledNumbers({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] });
+            setIsAnimating(false);
+            setHighlightCards([]);
+            setAutoPlay(false);
+          };
+
+          const handleManualInput = () => {
+            const num = parseInt(inputValue);
+            if (!isNaN(num) && num >= 1 && num <= 63) {
+              goToNumber(num);
+              setInputValue("");
+            }
+          };
+
+          useEffect(() => {
+            if (autoPlay && !isAnimating && currentNumber <= 63) {
+              const timer = setTimeout(() => {
+                nextNumber();
+              }, 2000);
+              return () => clearTimeout(timer);
+            } else if (currentNumber > 63) {
+              setAutoPlay(false);
+            }
+          }, [autoPlay, currentNumber, isAnimating]);
+
+          const startChallenge = () => {
+            setMode("challenge");
+            setChallengeStep(0);
+            setChallengeNumber(null);
+            setSelectedDecimal([]);
+            setSelectedBinary([false, false, false, false, false, false]);
+            setSelectedCards([]);
+            setFeedback(null);
+          };
+
+          const selectChallengeNumber = (num) => {
+            setChallengeNumber(num);
+            setChallengeStep(1);
+            setFeedback(null);
+          };
+
+          const toggleDecimal = (value) => {
+            if (selectedDecimal.includes(value)) {
+              setSelectedDecimal(selectedDecimal.filter(v => v !== value));
+            } else {
+              setSelectedDecimal([...selectedDecimal, value]);
+            }
+            setFeedback(null);
+          };
+
+          const checkDecimal = () => {
+            const sum = selectedDecimal.reduce((a, b) => a + b, 0);
+            if (sum === challengeNumber) {
+              const correctBreakdown = cards.filter(c => (challengeNumber & c.value) !== 0).map(c => c.value);
+              if (selectedDecimal.length === correctBreakdown.length && 
+                  selectedDecimal.every(v => correctBreakdown.includes(v))) {
+                setFeedback({ type: "success", message: "✓ 正确！进入下一步" });
+                setTimeout(() => {
+                  setChallengeStep(2);
+                  setFeedback(null);
+                }, 1500);
+              } else {
+                setFeedback({ type: "success", message: "✓ 和是对的！但还有其他拆分方式吗？试试只用1,2,4,8,16,32" });
+              }
+            } else {
+              setFeedback({ type: "error", message: `✗ 不对哦，这些数加起来是 ${sum}，不是 ${challengeNumber}` });
+            }
+          };
+
+          const toggleBinary = (index) => {
+            const newBinary = [...selectedBinary];
+            newBinary[index] = !newBinary[index];
+            setSelectedBinary(newBinary);
+            setFeedback(null);
+          };
+
+          const checkBinary = () => {
+            const correctBinary = getBinary(challengeNumber);
+            const isCorrect = selectedBinary.every((bit, i) => bit === (correctBinary[i] === 1));
+            if (isCorrect) {
+              setFeedback({ type: "success", message: "✓ 二进制表示正确！进入下一步" });
+              setTimeout(() => {
+                setChallengeStep(3);
+                setFeedback(null);
+              }, 1500);
+            } else {
+              setFeedback({ type: "error", message: "✗ 二进制表示不对，再想想看" });
+            }
+          };
+
+          const toggleCard = (cardId) => {
+            if (selectedCards.includes(cardId)) {
+              setSelectedCards(selectedCards.filter(id => id !== cardId));
+            } else {
+              setSelectedCards([...selectedCards, cardId]);
+            }
+            setFeedback(null);
+          };
+
+          const checkCards = () => {
+            const correctCards = getTargetCards(challengeNumber);
+            const isCorrect = selectedCards.length === correctCards.length &&
+                              selectedCards.every(id => correctCards.includes(id));
+            if (isCorrect) {
+              setFeedback({ type: "success", message: "✓ 选择正确！现在填入卡片" });
+              setTimeout(() => {
+                const newFilled = { ...filledNumbers };
+                selectedCards.forEach((cardId) => {
+                  if (!newFilled[cardId].includes(challengeNumber)) {
+                    newFilled[cardId] = [...newFilled[cardId], challengeNumber].sort((a, b) => a - b);
+                  }
+                });
+                setFilledNumbers(newFilled);
+                setChallengeStep(4);
+                setFeedback(null);
+              }, 1500);
+            } else {
+              setFeedback({ type: "error", message: "✗ 选择的卡片不对，看看二进制哪些位是1" });
+            }
+          };
+
+          const nextChallenge = () => {
+            const nextNum = challengeNumber + 1;
+            if (nextNum <= 63) {
+              selectChallengeNumber(nextNum);
+              setSelectedDecimal([]);
+              setSelectedBinary([false, false, false, false, false, false]);
+              setSelectedCards([]);
+            }
+          };
+
+          const backToDemo = () => {
+            setMode("demo");
+            setFeedback(null);
+          };
+
+          if (mode === "challenge") {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-pink-900 text-white p-4">
+                <div className="max-w-6xl mx-auto">
+                  <header className="text-center py-6">
+                    <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                      🎮 挑战模式
+                    </h1>
+                    <button
+                      onClick={backToDemo}
+                      className="mt-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"
+                    >
+                      ← 返回演示模式
+                    </button>
+                  </header>
+
+                  {challengeStep === 0 && (
+                    <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8">
+                      <h2 className="text-3xl font-bold text-center mb-6 text-yellow-300">
+                        选择一个数字开始挑战
+                      </h2>
+                      <div className="grid grid-cols-7 gap-3 max-w-3xl mx-auto">
+                        {Array.from({ length: 63 }, (_, i) => i + 1).map(num => (
+                          <button
+                            key={num}
+                            onClick={() => selectChallengeNumber(num)}
+                            className="h-14 bg-gradient-to-br from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg text-2xl font-bold transition-all duration-200 hover:scale-110"
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {challengeStep === 1 && (
+                    <div className="space-y-6">
+                      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
+                        <h2 className="text-2xl font-bold text-center mb-4 text-yellow-300">
+                          第1步：把 {challengeNumber} 拆分成几个数相加
+                        </h2>
+                        <p className="text-center text-blue-200 mb-6">
+                          点击下面的数字，选择需要的数，让它们相加等于 {challengeNumber}
+                        </p>
+                        
+                        <div className="flex flex-wrap justify-center gap-4 mb-6">
+                          {[32, 16, 8, 4, 2, 1].map(value => (
+                            <button
+                              key={value}
+                              onClick={() => toggleDecimal(value)}
+                              className={`px-8 py-4 rounded-xl text-2xl font-bold transition-all duration-300 ${
+                                selectedDecimal.includes(value)
+                                  ? "bg-green-500 text-white scale-110 shadow-lg"
+                                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                              }`}
+                            >
+                              {value}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="text-center mb-6">
+                          <div className="text-xl text-gray-300 mb-2">你选择的数字：</div>
+                          <div className="text-3xl font-bold">
+                            {selectedDecimal.length === 0 ? (
+                              <span className="text-gray-500">还没选择</span>
+                            ) : (
+                              <>
+                                {selectedDecimal.sort((a, b) => b - a).join(" + ")} = {selectedDecimal.reduce((a, b) => a + b, 0)}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {feedback && (
+                          <div className={`text-center text-xl font-bold mb-4 ${
+                            feedback.type === "success" ? "text-green-300" : "text-red-300"
+                          }`}>
+                            {feedback.message}
+                          </div>
+                        )}
+
+                        <div className="text-center">
+                          <button
+                            onClick={checkDecimal}
+                            disabled={selectedDecimal.length === 0}
+                            className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-xl font-bold transition-all duration-300"
+                          >
+                            检查答案
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {challengeStep === 2 && (
+                    <div className="space-y-6">
+                      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
+                        <h2 className="text-2xl font-bold text-center mb-4 text-yellow-300">
+                          第2步：点亮 {challengeNumber} 的二进制表示
+                        </h2>
+                        <p className="text-center text-blue-200 mb-6">
+                          根据刚才的拆分，点击相应的格子，把它变成1
+                        </p>
+
+                        <div className="flex justify-around mb-4 max-w-3xl mx-auto">
+                          {[...cards].reverse().map((card) => (
+                            <div key={card.id} className="text-center w-20">
+                              <div className={`text-lg font-bold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
+                                {card.label}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {card.value}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex justify-around mb-6 max-w-3xl mx-auto">
+                          {[...cards].reverse().map((card, reverseIndex) => {
+                            const index = 5 - reverseIndex;
+                            const isSelected = selectedBinary[index];
+                            return (
+                              <button
+                                key={card.id}
+                                onClick={() => toggleBinary(index)}
+                                className={`w-20 h-20 flex items-center justify-center rounded-xl text-4xl font-bold transition-all duration-300 ${
+                                  isSelected
+                                    ? `bg-gradient-to-br ${card.color} text-white scale-110 shadow-lg`
+                                    : "bg-gray-700 text-gray-500 hover:bg-gray-600"
+                                }`}
+                              >
+                                {isSelected ? "1" : "0"}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="text-center text-sm text-gray-400 mb-6">
+                          二进制：{[...selectedBinary].reverse().map(b => b ? "1" : "0").join("")}
+                        </div>
+
+                        {feedback && (
+                          <div className={`text-center text-xl font-bold mb-4 ${
+                            feedback.type === "success" ? "text-green-300" : "text-red-300"
+                          }`}>
+                            {feedback.message}
+                          </div>
+                        )}
+
+                        <div className="text-center">
+                          <button
+                            onClick={checkBinary}
+                            className="px-8 py-3 bg-purple-600 hover:bg-purple-700 rounded-full text-xl font-bold transition-all duration-300"
+                          >
+                            检查答案
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {challengeStep === 3 && (
+                    <div className="space-y-6">
+                      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6">
+                        <h2 className="text-2xl font-bold text-center mb-4 text-yellow-300">
+                          第3步：选择要填入的卡片
+                        </h2>
+                        <p className="text-center text-blue-200 mb-6">
+                          根据二进制表示，点击应该包含数字 {challengeNumber} 的卡片
+                        </p>
+
+                        <div className="flex justify-center mb-6 max-w-3xl mx-auto">
+                          {[...cards].reverse().map((card, reverseIndex) => {
+                            const index = 5 - reverseIndex;
+                            const binary = getBinary(challengeNumber);
+                            const isOne = binary[index] === 1;
+                            return (
+                              <div key={card.id} className="w-20 text-center">
+                                <div className={`text-lg font-bold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
+                                  {card.label}
+                                </div>
+                                <div className={`text-3xl font-bold ${isOne ? "text-green-400" : "text-gray-600"}`}>
+                                  {isOne ? "1" : "0"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {feedback && (
+                          <div className={`text-center text-xl font-bold mb-4 ${
+                            feedback.type === "success" ? "text-green-300" : "text-red-300"
+                          }`}>
+                            {feedback.message}
+                          </div>
+                        )}
+
+                        <div className="text-center mb-6">
+                          <button
+                            onClick={checkCards}
+                            disabled={selectedCards.length === 0}
+                            className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-xl font-bold transition-all duration-300"
+                          >
+                            检查答案
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {cards.map((card) => {
+                          const isSelected = selectedCards.includes(card.id);
+                          return (
+                            <button
+                              key={card.id}
+                              onClick={() => toggleCard(card.id)}
+                              className={`bg-white/10 backdrop-blur-lg rounded-xl p-6 transition-all duration-300 ${
+                                isSelected
+                                  ? "ring-4 ring-yellow-400 shadow-2xl shadow-yellow-400/50 scale-105"
+                                  : "ring-1 ring-white/20 hover:ring-2 hover:ring-white/40"
+                              }`}
+                            >
+                              <h3 className={`text-2xl font-bold text-center bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
+                                卡片{card.label}
+                              </h3>
+                              <div className="text-center text-gray-400 mt-2">
+                                {card.value}
+                              </div>
+                              {isSelected && (
+                                <div className="text-center mt-2 text-green-300 text-2xl">
+                                  ✓
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {challengeStep === 4 && (
+                    <div className="space-y-6">
+                      <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-lg rounded-xl p-8 text-center border-2 border-green-400/50">
+                        <div className="text-6xl mb-4">🎉</div>
+                        <h2 className="text-3xl font-bold mb-4 text-green-300">
+                          太棒了！完成了数字 {challengeNumber}
+                        </h2>
+                        <p className="text-xl text-blue-200 mb-6">
+                          数字已经填入到相应的卡片中了
+                        </p>
+                        <div className="flex justify-center gap-4">
+                          <button
+                            onClick={nextChallenge}
+                            disabled={challengeNumber >= 63}
+                            className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-xl font-bold transition-all duration-300"
+                          >
+                            下一个数字 ({challengeNumber + 1})
+                          </button>
+                          <button
+                            onClick={() => setChallengeStep(0)}
+                            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-full text-xl font-bold transition-all duration-300"
+                          >
+                            选择其他数字
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {cards.map((card) => {
+                          const numbers = filledNumbers[card.id] || [];
+                          const hasCurrentNumber = numbers.includes(challengeNumber);
+                          
+                          return (
+                            <div
+                              key={card.id}
+                              className={`bg-white/10 backdrop-blur-lg rounded-xl p-4 ${
+                                hasCurrentNumber ? "ring-4 ring-green-400 shadow-lg shadow-green-400/50" : "ring-1 ring-white/20"
+                              }`}
+                            >
+                              <h3 className={`text-xl font-bold text-center mb-3 bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
+                                卡片{card.label}
+                              </h3>
+                              <div className="bg-white/20 rounded-lg p-3">
+                                <div className="grid grid-cols-8 gap-1">
+                                  {Array.from({ length: 32 }).map((_, index) => {
+                                    const num = numbers[index];
+                                    const isHighlight = num === challengeNumber;
+                                    return (
+                                      <div
+                                        key={index}
+                                        className={`h-8 flex items-center justify-center rounded text-xs font-medium transition-all duration-300 ${
+                                          isHighlight
+                                            ? "bg-yellow-400 text-gray-900 animate-pulse scale-125 shadow-lg"
+                                            : num
+                                            ? "bg-blue-500/50 text-white"
+                                            : "bg-gray-700/30"
+                                        }`}
+                                      >
+                                        {num || ""}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <footer className="text-center text-sm text-gray-400 py-6 mt-6">
+                  © {new Date().getFullYear()} 孙维刚教育研究院-陈硕老师 保留所有权利。
+                </footer>
+              </div>
+            );
+          }
+
+          const binaryBits = getBinary(currentNumber);
+          const decimalBreakdown = getDecimalBreakdown(currentNumber);
+          const targetCards = getTargetCards(currentNumber);
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white p-4">
+              <div className="max-w-7xl mx-auto">
+                <header className="text-center py-6">
+                  <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                    🔢 二进制魔术 - 数字填表演示
+                  </h1>
+                  <p className="text-lg text-blue-200 mb-4">
+                    看看每个数字如何变成二进制，并填入相应的卡片
+                  </p>
+                  <button
+                    onClick={startChallenge}
+                    className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-full text-lg font-bold transition-all duration-300 hover:scale-105 shadow-lg"
+                  >
+                    🎮 进入挑战模式
+                  </button>
+                </header>
+
+                <div className="grid lg:grid-cols-2 gap-6 mb-6">
+                  <div className="space-y-4">
+                    <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border-2 border-yellow-400/50">
+                      <h2 className="text-2xl font-bold text-center mb-4 text-yellow-300">当前数字</h2>
+                      <div className="text-8xl font-bold text-center mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                        {currentNumber}
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
+                      <h3 className="text-xl font-bold mb-4 text-green-300">📊 十进制拆解</h3>
+                      <div className="flex flex-wrap items-center justify-center gap-2 text-lg">
+                        <span className="text-yellow-300 font-bold">{currentNumber}</span>
+                        <span>=</span>
+                        {decimalBreakdown.map((item, index) => (
+                          <React.Fragment key={index}>
+                            {index > 0 && <span>+</span>}
+                            <div className={`px-4 py-2 rounded-lg font-bold transition-all duration-300 ${
+                              item.active ? "bg-green-500 text-white scale-110" : "bg-gray-700 text-gray-500"
+                            }`}>
+                              {item.value}
+                            </div>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
+                      <h3 className="text-xl font-bold mb-4 text-purple-300">💻 二进制表示</h3>
+                      <div className="space-y-4">
+                        <div className="flex justify-around">
+                          {[...cards].reverse().map((card) => (
+                            <div key={card.id} className="text-center">
+                              <div className={`text-sm font-bold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
+                                卡片{card.label}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {card.value}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex justify-around">
+                          {[...binaryBits].reverse().map((bit, reverseIndex) => {
+                            const index = 5 - reverseIndex;
+                            const card = cards[index];
+                            const isOne = bit === 1;
+                            return (
+                              <div
+                                key={reverseIndex}
+                                className={`w-16 h-16 flex items-center justify-center rounded-lg text-3xl font-bold transition-all duration-500 ${
+                                  isOne
+                                    ? `bg-gradient-to-br ${card.color} text-white scale-110 shadow-lg`
+                                    : "bg-gray-700 text-gray-500"
+                                }`}
+                              >
+                                {bit}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="text-center text-sm text-gray-400">
+                          二进制：{[...binaryBits].reverse().join("")}
+                          <div className="text-xs mt-1">（最右边是最低位A，最左边是最高位F）</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {targetCards.length > 0 && (
+                      <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-lg rounded-xl p-4 border border-yellow-400/30">
+                        <div className="text-center">
+                          <div className="text-lg font-bold text-yellow-300 mb-2">✨ 将填入以下卡片</div>
+                          <div className="flex justify-center gap-2">
+                            {targetCards.map((cardId) => {
+                              const card = cards.find((c) => c.id === cardId);
+                              return (
+                                <div key={cardId} className={`px-4 py-2 rounded-lg font-bold bg-gradient-to-r ${card.color} text-white`}>
+                                  卡片{card.label}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h2 className="text-2xl font-bold mb-4 text-center text-cyan-300">📋 六张魔术卡片</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                      {cards.map((card) => {
+                        const isHighlighted = highlightCards.includes(card.id);
+                        const numbers = filledNumbers[card.id] || [];
+                        return (
+                          <div
+                            key={card.id}
+                            className={`bg-white/10 backdrop-blur-lg rounded-xl p-4 transition-all duration-500 ${
+                              isHighlighted ? "ring-4 ring-yellow-400 shadow-2xl shadow-yellow-400/50 scale-105" : "ring-1 ring-white/20"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className={`text-lg font-bold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
+                                卡片{card.label}
+                              </h3>
+                              <span className="text-sm text-gray-400">{card.value}</span>
+                            </div>
+                            <div className="bg-white/20 rounded-lg p-3 min-h-[200px]">
+                              <div className="grid grid-cols-8 gap-1">
+                                {Array.from({ length: 32 }).map((_, index) => {
+                                  const num = numbers[index];
+                                  const isJustFilled = num === currentNumber && isHighlighted;
+                                  return (
+                                    <div
+                                      key={index}
+                                      className={`h-8 flex items-center justify-center rounded text-xs font-medium transition-all duration-300 ${
+                                        num
+                                          ? isJustFilled
+                                            ? "bg-yellow-400 text-gray-900 animate-pulse scale-110"
+                                            : "bg-blue-500 text-white"
+                                          : "bg-gray-700/30"
+                                      }`}
+                                    >
+                                      {num || ""}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="mt-2 text-center text-xs text-gray-400">已填入 {numbers.length} 个数字</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 space-y-4">
+                  <div className="flex flex-wrap items-center justify-center gap-4">
+                    <button
+                      onClick={() => setAutoPlay(!autoPlay)}
+                      disabled={isAnimating || currentNumber > 63}
+                      className={`px-6 py-3 rounded-full font-bold transition-all duration-300 ${
+                        autoPlay ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                      } text-white disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                    >
+                      {autoPlay ? "⏸ 暂停" : "▶ 自动播放"}
+                    </button>
+                    <button
+                      onClick={prevNumber}
+                      disabled={currentNumber <= 1 || isAnimating}
+                      className="px-6 py-3 rounded-full font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    >
+                      ← 上一个
+                    </button>
+                    <button
+                      onClick={nextNumber}
+                      disabled={currentNumber > 63 || isAnimating}
+                      className="px-8 py-3 rounded-full font-bold bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed shadow-lg"
+                    >
+                      {isAnimating ? "填入中..." : "填入当前数字"}
+                    </button>
+                    <button
+                      onClick={reset}
+                      className="px-6 py-3 rounded-full font-bold bg-gray-700 hover:bg-gray-600 text-white transition-all duration-300"
+                    >
+                      🔄 重置
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-4">
+                    <label className="text-lg font-medium">跳转到数字：</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="63"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && handleManualInput()}
+                      placeholder="1-63"
+                      className="w-24 px-4 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-center focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                    <button
+                      onClick={handleManualInput}
+                      className="px-6 py-2 rounded-lg font-bold bg-yellow-600 hover:bg-yellow-700 text-white transition-all duration-300"
+                    >
+                      跳转
+                    </button>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-sm text-gray-300 mb-2">
+                      <span>进度：{Math.min(currentNumber - 1, 63)} / 63</span>
+                      <span>{Math.round(((currentNumber - 1) / 63) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <div
+                        className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(((currentNumber - 1) / 63) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-xl p-6">
+                  <h3 className="text-xl font-bold mb-3 text-yellow-300">💡 使用说明</h3>
+                  <ul className="space-y-2 text-blue-200">
+                    <li>• <strong>演示模式：</strong>自动演示每个数字的分解和填入过程</li>
+                    <li>• <strong>挑战模式：</strong>自己动手操作，体验完整的学习过程</li>
+                    <li>• <strong>二进制位：</strong>最右边是A（最低位），最左边是F（最高位）</li>
+                    <li>• <strong>观察要点：</strong>注意二进制位为1的位置，对应要填入的卡片</li>
+                  </ul>
+                </div>
+              </div>
+
+              <footer className="text-center text-sm text-gray-400 py-6 mt-6">
+                © {new Date().getFullYear()} 孙维刚教育研究院-陈硕老师 保留所有权利。
+              </footer>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<BinaryMagicBuilder />, document.getElementById('root'));
+    </script>
+</body>
+</html>
