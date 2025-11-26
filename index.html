@@ -535,12 +535,16 @@
                               </h3>
                               <div className="bg-white/20 rounded-lg p-3">
                                 <div className="grid grid-cols-8 gap-1">
-                                  {Array.from({ length: 32 }).map((_, index) => {
-                                    const num = numbers[index];
+                                  {Array.from({ length: 32 }).map((_, gridIndex) => {
+                                    // 按列填充：计算实际的数组索引
+                                    const row = Math.floor(gridIndex / 8);
+                                    const col = gridIndex % 8;
+                                    const arrayIndex = col * 4 + row;
+                                    const num = numbers[arrayIndex];
                                     const isHighlight = num === challengeNumber;
                                     return (
                                       <div
-                                        key={index}
+                                        key={gridIndex}
                                         className={`h-8 flex items-center justify-center rounded text-xs font-medium transition-all duration-300 ${
                                           isHighlight
                                             ? "bg-yellow-400 text-gray-900 animate-pulse scale-125 shadow-lg"
@@ -594,10 +598,79 @@
 
                 <div className="grid lg:grid-cols-2 gap-6 mb-6">
                   <div className="space-y-4">
+                    {/* 控制按钮 - 移到顶部 */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4">
+                      <div className="flex flex-wrap items-center justify-center gap-3 mb-3">
+                        <button
+                          onClick={prevNumber}
+                          disabled={currentNumber <= 1 || isAnimating}
+                          className="px-5 py-2 rounded-full font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
+                        >
+                          ← 上一个
+                        </button>
+                        <button
+                          onClick={nextNumber}
+                          disabled={currentNumber > 63 || isAnimating}
+                          className="px-6 py-2 rounded-full font-bold bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed shadow-lg text-sm"
+                        >
+                          {isAnimating ? "填入中..." : "填入当前数字"}
+                        </button>
+                        <button
+                          onClick={() => setAutoPlay(!autoPlay)}
+                          disabled={isAnimating || currentNumber > 63}
+                          className={`px-5 py-2 rounded-full font-bold transition-all duration-300 text-sm ${
+                            autoPlay ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                          } text-white disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                        >
+                          {autoPlay ? "⏸ 暂停" : "▶ 自动播放"}
+                        </button>
+                        <button
+                          onClick={reset}
+                          className="px-5 py-2 rounded-full font-bold bg-gray-700 hover:bg-gray-600 text-white transition-all duration-300 text-sm"
+                        >
+                          🔄 重置
+                        </button>
+                      </div>
+                      
+                      {/* 跳转功能 */}
+                      <div className="flex items-center justify-center gap-3 text-sm">
+                        <label className="font-medium">跳转：</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="63"
+                          value={inputValue}
+                          onChange={(e) => setInputValue(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && handleManualInput()}
+                          placeholder="1-63"
+                          className="w-20 px-3 py-1 rounded-lg bg-white/20 border border-white/30 text-white text-center focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                        />
+                        <button
+                          onClick={handleManualInput}
+                          className="px-4 py-1 rounded-lg font-bold bg-yellow-600 hover:bg-yellow-700 text-white transition-all duration-300"
+                        >
+                          GO
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border-2 border-yellow-400/50">
                       <h2 className="text-2xl font-bold text-center mb-4 text-yellow-300">当前数字</h2>
                       <div className="text-8xl font-bold text-center mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
                         {currentNumber}
+                      </div>
+                      {/* 进度条 */}
+                      <div className="mt-4">
+                        <div className="flex justify-between text-xs text-gray-300 mb-1">
+                          <span>进度：{Math.min(currentNumber - 1, 63)} / 63</span>
+                          <span>{Math.round(((currentNumber - 1) / 63) * 100)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div
+                            className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(((currentNumber - 1) / 63) * 100, 100)}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -702,12 +775,16 @@
                             </div>
                             <div className="bg-white/20 rounded-lg p-3 min-h-[200px]">
                               <div className="grid grid-cols-8 gap-1">
-                                {Array.from({ length: 32 }).map((_, index) => {
-                                  const num = numbers[index];
+                                {Array.from({ length: 32 }).map((_, gridIndex) => {
+                                  // 按列填充：计算实际的数组索引
+                                  const row = Math.floor(gridIndex / 8);
+                                  const col = gridIndex % 8;
+                                  const arrayIndex = col * 4 + row;
+                                  const num = numbers[arrayIndex];
                                   const isJustFilled = num === currentNumber && isHighlighted;
                                   return (
                                     <div
-                                      key={index}
+                                      key={gridIndex}
                                       className={`h-8 flex items-center justify-center rounded text-xs font-medium transition-all duration-300 ${
                                         num
                                           ? isJustFilled
@@ -726,73 +803,6 @@
                           </div>
                         );
                       })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 space-y-4">
-                  <div className="flex flex-wrap items-center justify-center gap-4">
-                    <button
-                      onClick={() => setAutoPlay(!autoPlay)}
-                      disabled={isAnimating || currentNumber > 63}
-                      className={`px-6 py-3 rounded-full font-bold transition-all duration-300 ${
-                        autoPlay ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
-                      } text-white disabled:bg-gray-600 disabled:cursor-not-allowed`}
-                    >
-                      {autoPlay ? "⏸ 暂停" : "▶ 自动播放"}
-                    </button>
-                    <button
-                      onClick={prevNumber}
-                      disabled={currentNumber <= 1 || isAnimating}
-                      className="px-6 py-3 rounded-full font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    >
-                      ← 上一个
-                    </button>
-                    <button
-                      onClick={nextNumber}
-                      disabled={currentNumber > 63 || isAnimating}
-                      className="px-8 py-3 rounded-full font-bold bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed shadow-lg"
-                    >
-                      {isAnimating ? "填入中..." : "填入当前数字"}
-                    </button>
-                    <button
-                      onClick={reset}
-                      className="px-6 py-3 rounded-full font-bold bg-gray-700 hover:bg-gray-600 text-white transition-all duration-300"
-                    >
-                      🔄 重置
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-4">
-                    <label className="text-lg font-medium">跳转到数字：</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="63"
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && handleManualInput()}
-                      placeholder="1-63"
-                      className="w-24 px-4 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-center focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                    />
-                    <button
-                      onClick={handleManualInput}
-                      className="px-6 py-2 rounded-lg font-bold bg-yellow-600 hover:bg-yellow-700 text-white transition-all duration-300"
-                    >
-                      跳转
-                    </button>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm text-gray-300 mb-2">
-                      <span>进度：{Math.min(currentNumber - 1, 63)} / 63</span>
-                      <span>{Math.round(((currentNumber - 1) / 63) * 100)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-3">
-                      <div
-                        className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(((currentNumber - 1) / 63) * 100, 100)}%` }}
-                      />
                     </div>
                   </div>
                 </div>
